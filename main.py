@@ -22,11 +22,11 @@ class Fractal:
         # self.y = np.linspace(0, height, num=height, dtype=np.float32)
 
     @staticmethod
-    @numba.njit(fastmath=True)
+    @numba.njit(fastmath=True, parallel=True)
     def render(screen_array):
         # self.render_pure_python()
         # self.render_numpy_python()
-        for x in range(width):
+        for x in numba.prange(width):
             for y in range(height):
                 c = (x - offset[0]) * zoom + 1j * (y - offset[1]) * zoom
                 z = 0
