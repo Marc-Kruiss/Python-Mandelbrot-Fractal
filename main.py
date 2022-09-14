@@ -3,7 +3,7 @@ import numpy as np
 import taichi as ti
 
 # settings
-res = width, height = 800, 450 # with modern video card with CUDA support - increase res '1600, 900' and set 'ti.init(arch=ti.cuda)'
+res = width, height = 1600, 900  # with modern video card with CUDA support - set 'ti.init(arch=ti.cuda)'
 offset = np.array([1.3 * width, height]) // 2
 # texture
 texture = pg.image.load('src/color_texture.jpg')
@@ -17,7 +17,7 @@ class Fractal:
         self.app = app
         self.screen_array = np.full((width, height, 3), [0, 0, 0], dtype=np.uint32)
         # taichi architecture, you can use ti.cpu, ti.cuda, ti.opengl, ti.vulkan, ti.metal
-        ti.init(arch=ti.cpu) # if available arch=ti.cuda
+        ti.init(arch=ti.cuda)
         # taichi fields
         self.screen_field = ti.Vector.field(3, ti.uint32, (width, height))
         self.texture_field = ti.Vector.field(3, ti.uint32, texture.get_size())
@@ -38,7 +38,7 @@ class Fractal:
 
     @ti.kernel
     def render(self, max_iter: ti.int32, zoom: ti.float32, dx: ti.float32, dy: ti.float32):
-        for x, y in self.screen_field: # parallelization loop
+        for x, y in self.screen_field:  # parallelization loop
             c = ti.Vector([(x - offset[0]) * zoom - dx, (y - offset[1]) * zoom - dy])
             z = ti.Vector([0.0, 0.0])
             num_iter = 0
@@ -49,6 +49,36 @@ class Fractal:
                 num_iter += 1
             col = int(texture_size * num_iter / max_iter)
             self.screen_field[x, y] = self.texture_field[col, col]
+
+    def control(self):
+        pressed_key = pg.key.get_pressed()
+        dt = self.delta_time()
+        # movement
+        if pressed_key[pg.K_a]:
+            self.increment[0] += self.vel * dt
+        if pressed_key[pg.K_d]:
+            self.increment[0] -= self.vel * dt
+        if pressed_key[pg.K_w]:
+            self.increment[1] += self.vel * dt
+        if pressed_key[pg.K_s]:
+            self.increment[1] -= self.vel * dt
+
+        # stable zoom and movement
+        if pressed_key[pg.K_UP] or pressed_key[pg.K_DOWN]:
+            inv_scale = 2 - self.scale
+            if pressed_key[pg.K_UP]:
+                self.zoom *= self.scale
+                self.vel *= self.scale
+            if pressed_key[pg.K_DOWN]:
+                self.zoom *= inv_scale
+                self.vel *= inv_scale
+
+        # mandelbrot resolution
+        if pressed_key[pg.K_LEFT]:
+            self.max_iter -= 1
+        if pressed_key[pg.K_RIGHT]:
+            self.max_iter += 1
+        self.max_iter = min(max(self.max_iter, 2), self.max_iter_limit)
 
     def update(self):
         self.control()
@@ -61,6 +91,7 @@ class Fractal:
     def run(self):
         self.update()
         self.draw()
+
 
 class App:
     def __init__(self):
